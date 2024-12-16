@@ -9,7 +9,8 @@ from sklearn.manifold import TSNE
 # Create a sample dataframe (you would load your dataset here)
 df = pd.read_csv('student_data.csv')
 
-numeric_columns = df.iloc[:, [2, 6, 7, 12, 13, 14, 23, 24, 25, 26, 27, 28, 29, 32]]
+numeric_columns = df.iloc[:, [2, 6, 7, 12,
+                              13, 14, 23, 24, 25, 26, 27, 28, 29, 32]]
 data_standardized = StandardScaler().fit_transform(numeric_columns)
 
 # Perform t-SNE
@@ -58,6 +59,7 @@ app.layout = html.Div([
     dcc.Graph(id='tsne-plot'),
 ])
 
+
 @app.callback(
     Output('tsne-plot', 'figure'),
     [Input('grade-range', 'value')]
@@ -88,7 +90,8 @@ def update_plot(selected_ranges):
         labels={'G3': 'Final Grade'},
         hover_data=['age', 'Medu', 'Fedu'],
         color_continuous_scale='Viridis',  # Consistent color scale
-        range_color=[0, 20]  # Fixed color range from 0 to 20 (minimum to maximum grade)
+        # Fixed color range from 0 to 20 (minimum to maximum grade)
+        range_color=[0, 20]
     )
 
     # Fix the axis range with zoomed-out margins
