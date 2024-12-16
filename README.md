@@ -4,4 +4,5 @@ This ensures that the dependencies of each project are isolated, preventing vers
 It also ensures that the specific versions of libraries you are using in your project can be reproduced by others (or on other machines). 
 
 To run any python script, first activate the virtual environment:  
+python3 -m venv myenv   
 `source myenv/bin/activate`
