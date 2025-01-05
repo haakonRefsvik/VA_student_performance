@@ -14,13 +14,14 @@ df['address'] = df['address'].map({'U': 0, 'R': 1})
 df['Pstatus'] = df['Pstatus'].map({'T': 0, 'A': 1})
 df['schoolsup'] = df['schoolsup'].map({'yes': 1, 'no': 0})
 df['famsup'] = df['famsup'].map({'yes': 1, 'no': 0})
+df['famsize'] = df['famsize'].map({'GT3': 1, 'LE3': 0})
 df['activities'] = df['activities'].map({'yes': 1, 'no': 0})
 df['higher'] = df['higher'].map({'yes': 1, 'no': 0})
 df['internet'] = df['internet'].map({'yes': 1, 'no': 0})
 df['romantic'] = df['romantic'].map({'yes': 1, 'no': 0})
 
 # Step 2: Select relevant numeric and encoded columns
-columns = ['age', 'sex', 'studytime', 'failures', 'Pstatus', 'Medu', 'Fedu', 
+columns = ['address','Pstatus','famsize', 'age', 'sex', 'studytime', 'failures', 'Pstatus', 'Medu', 'Fedu', 
            'schoolsup', 'famsup', 'activities', 'higher', 'internet', 'romantic', 
            'famrel', 'freetime', 'goout', 'Dalc', 'Walc', 'health', 'absences', 'G3']
 
