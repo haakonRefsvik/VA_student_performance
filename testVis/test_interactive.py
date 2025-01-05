@@ -88,11 +88,11 @@ print(numeric_columns.iloc[:, 40:50].head())
 data_standardized = StandardScaler().fit_transform(numeric_columns)
 
 # Reduce dimensions with PCA (use 10 components as an example)
-pca = PCA(n_components=2)
+pca = PCA(n_components=5)
 df_pca = pca.fit_transform(data_standardized)
 
 # Apply t-SNE
-tsne = TSNE(n_components=2, perplexity=29, learning_rate=200, random_state=42)
+tsne = TSNE(n_components=2, perplexity=15, learning_rate=200, random_state=42)
 tsne_results = tsne.fit_transform(df_pca)
 
 
@@ -179,24 +179,35 @@ def display_selected_points(selected_points):
         return f"Selected Points: {len(selected_points)} ({100 * (len(selected_points) / len(numeric_columns)):.2f}%)"
     return "No points selected."
 
-# Callback to update the age distribution bar graph
 @app.callback(
     Output('age-bargraph', 'figure'),
     Input('selected-points', 'data')
 )
-def update_age_bargraph(selected_points):
+def update_age_boxplot(selected_points):
     if selected_points:
         selected_df = df.iloc[selected_points]
     else:
         selected_df = df
 
-    # Create the age distribution bar graph
-    fig = px.histogram(
-        selected_df, x='age', nbins=len(selected_df['age'].unique()),
-        title="Age Distribution",
-        labels={'age': 'Age'},
+    # Create the box plot
+    fig = px.box(
+        selected_df, y='Medu',
+        title="Mothers education",
+        points = "outliers",
+
     )
-    fig.update_layout(height=600, width=400)
+    fig.update_layout(
+        height=350, 
+        width=250,
+        yaxis=dict(
+            range=[0, 4],
+            tickvals=[0,1, 2, 3, 4],  # Specific tick values
+            ticktext=["None","primary", "5th-9th", "secondary", "higher"],  # Custom labels (optional)
+            title=""
+        ),
+        dragmode='select'  # Set default to box select tool
+    )
+
     return fig
 
 # Run the app
