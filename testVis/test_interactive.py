@@ -110,36 +110,7 @@ y_min, y_max = df['tsne-2'].min() - y_margin, df['tsne-2'].max() + y_margin
 # Initialize Dash app
 app = dash.Dash(__name__)
 
-# App layout
-app.layout = html.Div([
-    html.H1("Interactive t-SNE Visualization"),
-    html.Div([
-        html.Label("Mother's Education Level"),
-        dcc.RangeSlider(0, 4, 1, value=[0, 4], id='mother-education-slider',
-                        marks={i: str(i) for i in range(5)}),
-        html.Label("Father's Education Level"),
-        dcc.RangeSlider(0, 4, 1, value=[0, 4], id='father-education-slider',
-                        marks={i: str(i) for i in range(5)}),
-        html.Label("Final Grade (G3)"),
-        dcc.RangeSlider(0, 20, 1, value=[0, 20], id='final-grade-slider',
-                        marks={i: str(i) for i in range(0, 21, 2)}),
-    ], style={'margin-bottom': '20px', 'width': '50%'}),
-    html.Div([
-        dcc.Graph(id='tsne-plot', style={'height': '600px', 'width': '800px'}),
-        dcc.Graph(id='age-bargraph', style={'height': '600px', 'width': '400px'}),
-    ], style={'display': 'flex', 'flex-direction': 'row'}),
-    dcc.Store(id='selected-points', data=[]),  # Store for selected points
-    html.Div(id='selection-output'),  # Div to display selected points
-])
-
-# Callback to update the t-SNE scatter plot based on slider inputs
-@app.callback(
-    Output('tsne-plot', 'figure'),
-    [Input('mother-education-slider', 'value'),
-     Input('father-education-slider', 'value'),
-     Input('final-grade-slider', 'value')]
-)
-def update_plot(mother_education_range, father_education_range, grade_range):
+def update_plot():
     fig = px.scatter(
         df, x='tsne-1', y='tsne-2', color='G3',
         title="t-SNE Visualization",
@@ -157,6 +128,20 @@ def update_plot(mother_education_range, father_education_range, grade_range):
         dragmode='select'  # Set default to box select tool
     )
     return fig
+
+# App layout
+app.layout = html.Div([
+    html.H1("Interactive t-SNE Visualization"),
+    html.Div([
+        dcc.Graph(id='medu-boxplot', style={'height': '100px', 'width': '200px'}),
+        dcc.Graph(id='fedu-boxplot', style={'height': '100px', 'width': '200px'}),
+    ], style={'display': 'flex', 'flex-direction': 'row', 'height': '300px'}),
+    html.Div([
+        dcc.Graph(id='tsne-plot', figure=update_plot(),style={'height': '600px', 'width': '800px'}),
+    ], style={'display': 'flex', 'flex-direction': 'row'}),
+    dcc.Store(id='selected-points', data=[]),  # Store for selected points
+    html.Div(id='selection-output'),  # Div to display selected points
+])
 
 # Callback to store selected points
 @app.callback(
@@ -180,36 +165,61 @@ def display_selected_points(selected_points):
     return "No points selected."
 
 @app.callback(
-    Output('age-bargraph', 'figure'),
+    Output('medu-boxplot', 'figure'),
+    Output('fedu-boxplot', 'figure'),
     Input('selected-points', 'data')
 )
-def update_age_boxplot(selected_points):
+
+def update_education_boxplots(selected_points):
+    # Filter the dataframe based on selected points if they exist
     if selected_points:
         selected_df = df.iloc[selected_points]
     else:
         selected_df = df
 
-    # Create the box plot
-    fig = px.box(
+    # Create the medu box plot
+    medu_fig = px.box(
         selected_df, y='Medu',
-        title="Mothers education",
-        points = "outliers",
-
+        title="Mother's Education",
+        points="outliers",
     )
-    fig.update_layout(
+    medu_fig.update_layout(
         height=350, 
         width=250,
         yaxis=dict(
             range=[0, 4],
-            tickvals=[0,1, 2, 3, 4],  # Specific tick values
-            ticktext=["None","primary", "5th-9th", "secondary", "higher"],  # Custom labels (optional)
+            tickvals=[0, 1, 2, 3, 4],
+            ticktext=["None", "Primary", "5th-9th", "Secondary", "Higher"], 
             title=""
         ),
-        dragmode='select'  # Set default to box select tool
+        dragmode='select'
+    )
+    medu_fig.update_traces(
+        marker=dict(color='red')
     )
 
-    return fig
+    # Create the fedu box plot
+    fedu_fig = px.box(
+        selected_df, y='Fedu',
+        title="Father's Education",
+        points="outliers",
+    )
+    fedu_fig.update_layout(
+        height=350, 
+        width=250,
+        yaxis=dict(
+            range=[0, 4],
+            tickvals=[0, 1, 2, 3, 4],
+            ticktext=["None", "Primary", "5th-9th", "Secondary", "Higher"], 
+            title=""
+        ),
+        dragmode='select'
+    )
+    fedu_fig.update_traces(
+        marker=dict(color='red')
+    )
 
+    return medu_fig, fedu_fig
 # Run the app
 if __name__ == '__main__':
     app.run_server(debug=True)
