@@ -88,11 +88,11 @@ print(numeric_columns.iloc[:, 40:50].head())
 data_standardized = StandardScaler().fit_transform(numeric_columns)
 
 # Reduce dimensions with PCA (use 10 components as an example)
-pca = PCA(n_components=5)
+pca = PCA(n_components=2)
 df_pca = pca.fit_transform(data_standardized)
 
 # Apply t-SNE
-tsne = TSNE(n_components=2, perplexity=15, learning_rate=200, random_state=42)
+tsne = TSNE(n_components=2, perplexity=29, learning_rate=200, random_state=42)
 tsne_results = tsne.fit_transform(df_pca)
 
 
@@ -144,7 +144,8 @@ def update_plot(mother_education_range, father_education_range, grade_range):
         df, x='tsne-1', y='tsne-2', color='G3',
         title="t-SNE Visualization",
         labels={'G3': 'Final Grade'},
-        hover_data=['age', 'Medu', 'Fedu'],
+        hover_data={'tsne-1': False, 'tsne-2': False,  # Exclude tsne-1 and tsne-2
+                    'age': True, 'Medu': True, 'Fedu': True},  # Show only age, Medu, Fedu
         color_continuous_scale='Viridis',  # Consistent color scale
         range_color=[0, 20]  # Fixed color range from 0 to 20 (minimum to maximum grade)
     )
