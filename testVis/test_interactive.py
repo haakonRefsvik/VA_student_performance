@@ -110,9 +110,31 @@ y_min, y_max = df['tsne-2'].min() - y_margin, df['tsne-2'].max() + y_margin
 # Initialize Dash app
 app = dash.Dash(__name__)
 
-def update_plot():
+@app.callback(
+    Output('tsne-plot', 'figure'),
+    [Input('medu-boxplot', 'selectedData'),
+     Input('fedu-boxplot', 'selectedData')]
+)
+def update_tsne_plot(medu_selected, fedu_selected):
+    # Determine which points are selected based on the boxplot selections
+    selected_indices = set()
+    
+    if medu_selected:
+        selected_indices.update([point['pointIndex'] for point in medu_selected['points']])
+    
+    if fedu_selected:
+        selected_indices.update([point['pointIndex'] for point in fedu_selected['points']])
+    
+    # If no points are selected, show the full data
+    if not selected_indices:
+        selected_df = df
+    else:
+        # Filter the dataframe to only show selected points
+        selected_df = df.iloc[list(selected_indices)]
+    
+    # Create a scatter plot based on the selected points
     fig = px.scatter(
-        df, x='tsne-1', y='tsne-2', color='G3',
+        selected_df, x='tsne-1', y='tsne-2', color='G3',
         title="t-SNE Visualization",
         labels={'G3': 'Final Grade'},
         hover_data={'tsne-1': False, 'tsne-2': False,  # Exclude tsne-1 and tsne-2
@@ -120,28 +142,34 @@ def update_plot():
         color_continuous_scale='Viridis',  # Consistent color scale
         range_color=[0, 20]  # Fixed color range from 0 to 20 (minimum to maximum grade)
     )
+
     fig.update_layout(
-        xaxis=dict(range=[x_min, x_max]),
-        yaxis=dict(range=[y_min, y_max]),
         height=600,
         width=800,
-        dragmode='select'  # Set default to box select tool
+        dragmode='select',  # Set default to box select tool
+        title="Filtered t-SNE Visualization"
     )
+    
     return fig
 
 # App layout
+##  ------------------------------------------------------------------------------
+
 app.layout = html.Div([
     html.H1("Interactive t-SNE Visualization"),
     html.Div([
         dcc.Graph(id='medu-boxplot', style={'height': '100px', 'width': '200px'}),
         dcc.Graph(id='fedu-boxplot', style={'height': '100px', 'width': '200px'}),
+        dcc.Graph(id='studytime-boxplot', style={'height': '100px', 'width': '200px'}),
     ], style={'display': 'flex', 'flex-direction': 'row', 'height': '300px'}),
     html.Div([
-        dcc.Graph(id='tsne-plot', figure=update_plot(),style={'height': '600px', 'width': '800px'}),
+        dcc.Graph(id='tsne-plot', figure=update_tsne_plot([], []), style={'height': '600px', 'width': '800px'}),
     ], style={'display': 'flex', 'flex-direction': 'row'}),
     dcc.Store(id='selected-points', data=[]),  # Store for selected points
     html.Div(id='selection-output'),  # Div to display selected points
 ])
+
+##  ------------------------------------------------------------------------------
 
 # Callback to store selected points
 @app.callback(
@@ -164,13 +192,50 @@ def display_selected_points(selected_points):
         return f"Selected Points: {len(selected_points)} ({100 * (len(selected_points) / len(numeric_columns)):.2f}%)"
     return "No points selected."
 
+
+@app.callback(
+    Output('studytime-boxplot', 'figure'),
+    Input('selected-points', 'data')
+)
+
+def update_studytime_boxplot(selected_points):
+    # Filter the dataframe based on selected points if they exist
+    if selected_points:
+        selected_df = df.iloc[selected_points]
+    else:
+        selected_df = df
+
+    # Create the medu box plot
+    medu_fig = px.box(
+        selected_df, y='studytime',
+        title="Weekly studytime",
+        points="outliers",
+    )
+    medu_fig.update_layout(
+        height=350, 
+        width=250,
+        title_x=0.5,  # Center the title
+        yaxis=dict(
+            range=[1, 4],
+            tickvals=[1, 2, 3, 4],
+            ticktext=["<2 hours", "2-5 hours", "5-10 hours", ">10 hours"], 
+            title=""
+        ),
+        dragmode='select'
+    )
+    medu_fig.update_traces(
+        marker=dict(color='red')
+    )
+
+    return medu_fig
+
 @app.callback(
     Output('medu-boxplot', 'figure'),
     Output('fedu-boxplot', 'figure'),
     Input('selected-points', 'data')
 )
-
 def update_education_boxplots(selected_points):
+    titleFontSize = 16
     # Filter the dataframe based on selected points if they exist
     if selected_points:
         selected_df = df.iloc[selected_points]
@@ -186,6 +251,8 @@ def update_education_boxplots(selected_points):
     medu_fig.update_layout(
         height=350, 
         width=250,
+        title_x=0.5,  # Center the title
+        title_font=dict(size=titleFontSize),  # Set the title font size to 16 (adjust as needed)
         yaxis=dict(
             range=[0, 4],
             tickvals=[0, 1, 2, 3, 4],
@@ -207,6 +274,8 @@ def update_education_boxplots(selected_points):
     fedu_fig.update_layout(
         height=350, 
         width=250,
+        title_x=0.5,  # Center the title
+        title_font=dict(size=titleFontSize),  # Set the title font size to 16 (adjust as needed)
         yaxis=dict(
             range=[0, 4],
             tickvals=[0, 1, 2, 3, 4],
