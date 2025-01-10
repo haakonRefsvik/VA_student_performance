@@ -4,9 +4,10 @@ import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import KBinsDiscretizer, MinMaxScaler, OneHotEncoder, StandardScaler
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots  # Import make_subplots
 
 # Load and preprocess the data
 df = pd.read_csv('student_data.csv')
@@ -122,7 +123,6 @@ def update_tsne_plot(medu_selected, fedu_selected, studytime_selected):
         for point in medu_selected['points']:
             medu_indices.update(point['pointNumbers'])  # Use 'pointNumbers' for histogram bins
 
-        print(len(medu_indices))
         selected_indices.intersection_update(medu_indices)
 
     if fedu_selected and 'points' in fedu_selected:
@@ -173,77 +173,79 @@ categories = ['Mother Education (Medu)',
               "Workday Alcohol Consuption",
               ]
 
+# Function to create the heatmap
 @app.callback(
-    Output('spider-chart', 'figure'),
+    Output('heatmap', 'figure'),
     Input('selected-points', 'data')
 )
-def create_spider_chart(selected_points):
-    fig = go.Figure()
-
-    # Filter the dataframe based on selected points
+def create_heatmap(selected_points):
+    # If selected points are available, filter the dataframe accordingly
     if selected_points:
         selected_df = df.iloc[selected_points]
     else:
-        selected_df = df  # If no points selected, show the full data
+        selected_df = df  # Show full dataset if no points are selected
 
-    # Create a color scale based on the final grade (G3)
-    color_scale = px.colors.sequential.Viridis
-    max_grade = df['G3'].max()
-    min_grade = df['G3'].min()
+    # Define the attributes to include in the heatmap
+    attributes = ['Medu', 'Fedu', 'failures', 'studytime', 'traveltime', 'Walc', 'Dalc', 'health', 'famrel', 'goout']
+    
+    # Define custom titles for the attributes
+    custom_titles = {
+        'Medu': 'Mother Education Level',
+        'Fedu': 'Father Education Level',
+        'failures': 'Number of Failures',
+        'studytime': 'Weekly Study Time',
+        'traveltime': 'Travel Time to School',
+        'Walc': 'Weekend Alcohol Consumption',
+        'Dalc': 'Workday Alcohol Consumption',
+        'health': 'Quality of health',
+        'famrel': 'quality of family relationships',
+        'goout': 'going out with friends'
+    }
+    
+    # Create a binning transformer to discretize values into 5 bins
+    discretizer = KBinsDiscretizer(n_bins=5, encode='ordinal', strategy='uniform')
 
-    # Define the radar chart categories
-    categories = [
-        'Mother Education (Medu)', 
-        'Father Education (Fedu)', 
-        'Study Time', 
-        'Travel Time', 
-        'Failures', 
-        'Weekend Alcohol Consumption (Walc)', 
-        'Workday Alcohol Consumption (Dalc)'
-    ]
+    # Create a dataframe to hold the counts of students per bin per attribute
+    heatmap_data = pd.DataFrame(columns=attributes, index=[0, 1, 2, 3, 4])
+    text_data = pd.DataFrame(columns=attributes, index=[0, 1, 2, 3, 4])  # For text labels inside cells
 
-    # Add a trace for each selected student
-    for _, student in selected_df.iterrows():
-        # Normalize the G3 value to map it to the color scale
-        grade_normalized = (student['G3'] - min_grade) / (max_grade - min_grade)
-        color = px.colors.sample_colorscale(color_scale, grade_normalized)[0]
+    # Bin and count for each attribute
+    for attribute in attributes:
+        # Reshape the data to fit the discretizer and transform it into bins
+        binned_data = discretizer.fit_transform(selected_df[[attribute]])
 
-        fig.add_trace(go.Scatterpolar(
-            r=[
-                student['Medu'], 
-                student['Fedu'], 
-                student['studytime'], 
-                student['traveltime'],  
-                student['failures'],
-                student['Walc'],                
-                student['Dalc']         
-            ],
-            theta=categories,
-            fill='none',
-            fillcolor=color,  # Fill color based on the grade (with normalized color)
-            line=dict(color=color),  # Set the opacity of the line
-            name=f"Student {_}",  # Optionally include student index or ID
-            opacity=0.5  # Set opacity for the fill area
-        ))
+        # Count how many students fall into each bin for the current attribute
+        bin_counts = pd.Series(binned_data.flatten()).value_counts().sort_index()
 
-    # Update layout of the chart
+        # Reindex to ensure all bins (0-4) are present, filling missing bins with 0
+        bin_counts = bin_counts.reindex([0, 1, 2, 3, 4]).fillna(0).astype(int)
+
+        # Fill the heatmap dataframe with the bin counts
+        heatmap_data[attribute] = bin_counts
+
+        # Fill the text dataframe with the bin counts as text
+        text_data[attribute] = bin_counts.astype(str)  # Convert counts to string for text
+
+    # Create the heatmap figure
+    fig = go.Figure(go.Heatmap(
+        z=heatmap_data.T.values,  # Values for the heatmap (transposed to fit the layout)
+        x=heatmap_data.index,  # Binned values (0, 1, 2, 3, 4)
+        y=[custom_titles[attr] for attr in heatmap_data.columns],  # Custom titles for attributes
+        colorscale='Inferno',  # Color scale
+        colorbar=dict(title='Number of Students'),
+        showscale=True,
+        text=text_data.T.values,  # The text for each cell
+        texttemplate='%{text}',  # Use the text inside the cells
+        hoverinfo='text',  # Show the text on hover
+    ))
+
+    # Update layout
     fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, 
-                       max(df['Medu'].max(), 
-                           df['Fedu'].max(), 
-                           df['studytime'].max(),  
-                           df['traveltime'].max(),  
-                           df['failures'].max(),
-                           df['Walc'].max(),
-                           df['Dalc'].max()   
-                        )]  # Adjust range
-            )
-        ),
-        showlegend=False,  # Hide the legend to avoid clutter
-        title="Radar Chart for Selected Students (Colored by Final Grade)"
+        title="Heatmap of Students' Attribute Bins with Counts",
+        xaxis_title="Attribute Bins (0-4)",
+        yaxis_title="",
+        height=600,
+        width=800,
     )
 
     return fig
@@ -264,7 +266,7 @@ app.layout = html.Div([
                     style={'height': '600px', 'width': '800px'},
                     config={'displayModeBar': True},  # Enable tools for selection
                   ),
-        dcc.Graph(id='spider-chart', style={'height': '600px', 'width': '600px'}),  # Spider chart
+        dcc.Graph(id='heatmap', style={'height': '600px', 'width': '600px'}),  # heatmap
     ], style={'display': 'flex', 'flex-direction': 'row'}),
     dcc.Store(id='selected-points', data=[]),  # Store for selected points
     html.Div(id='selection-output'),  # Div to display selected points
