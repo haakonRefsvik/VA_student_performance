@@ -116,18 +116,35 @@ app = dash.Dash(__name__)
 @app.callback(
     Output('tsne-plot', 'figure'),
     [Input('medu-boxplot', 'selectedData'),
-     Input('fedu-boxplot', 'selectedData')]
+     Input('fedu-boxplot', 'selectedData'),
+     Input('studytime-boxplot', 'selectedData')
+    ]
 )
-def update_tsne_plot(medu_selected, fedu_selected):
+def update_tsne_plot(medu_selected, fedu_selected, studytime_selected):
     # Determine which points are selected based on the boxplot selections
-    selected_indices = set()
-    
-    if medu_selected:
-        selected_indices.update([point['pointIndex'] for point in medu_selected['points']])
-    
-    if fedu_selected:
-        selected_indices.update([point['pointIndex'] for point in fedu_selected['points']])
-    
+    selected_indices = set(range(len(df)))
+
+    # Process selections from the Medu histogram
+    if medu_selected and 'points' in medu_selected:
+        medu_indices = set()
+        for point in medu_selected['points']:
+            medu_indices.update(point['pointNumbers'])  # Use 'pointNumbers' for histogram bins
+
+        print(len(medu_indices))
+        selected_indices.intersection_update(medu_indices)
+
+    if fedu_selected and 'points' in fedu_selected:
+        fedu_indices = set()
+        for point in fedu_selected['points']:
+            fedu_indices.update(point['pointNumbers'])  # Use 'pointNumbers' for histogram bins
+        selected_indices.intersection_update(fedu_indices)
+
+    if studytime_selected and 'points' in studytime_selected:
+        studytime_indices = set()
+        for point in studytime_selected['points']:
+            studytime_indices.update(point['pointNumbers'])  # Use 'pointNumbers' for histogram bins
+        selected_indices.intersection_update(studytime_indices)
+
     # If no points are selected, show the full data
     if not selected_indices:
         selected_df = df
@@ -161,13 +178,13 @@ def update_tsne_plot(medu_selected, fedu_selected):
 app.layout = html.Div([
     html.H1("Interactive t-SNE Visualization"),
     html.Div([
-        dcc.Graph(id='medu-boxplot', style={'height': '100px', 'width': '200px'}),
-        dcc.Graph(id='fedu-boxplot', style={'height': '100px', 'width': '200px'}),
-        dcc.Graph(id='studytime-boxplot', style={'height': '100px', 'width': '200px'}),
-    ], style={'display': 'flex', 'flex-direction': 'row', 'height': '300px'}),
+        dcc.Graph(id='medu-boxplot', style={'height': '150px', 'width': '240px'}),
+        dcc.Graph(id='fedu-boxplot', style={'height': '150px', 'width': '240px'}),
+        dcc.Graph(id='studytime-boxplot', style={'height': '150px', 'width': '240px'}),
+    ], style={'display': 'flex', 'flex-direction': 'row', 'height': '350px'}),
     html.Div([
         dcc.Graph(id='tsne-plot', 
-                    figure=update_tsne_plot([], []), 
+                    figure=update_tsne_plot([], [], []), 
                     style={'height': '600px', 'width': '800px'},
                     config={'displayModeBar': True},  # Enable tools for selection
                   ),
@@ -262,6 +279,7 @@ def update_education_histograms(selected_points):
         x='Medu',
         title="Mother's Education",
         labels={'Medu': "Mother's Education"},
+        nbins=5,  # To align with the 5 education levels
     )
     medu_fig.update_layout(
         height=histogramHeight,
