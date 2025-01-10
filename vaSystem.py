@@ -6,6 +6,7 @@ from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 import plotly.express as px
+import plotly.graph_objects as go
 
 # Load and preprocess the data
 df = pd.read_csv('student_data.csv')
@@ -38,14 +39,6 @@ df[boolean_columns] = df[boolean_columns].astype(int)
 
 ##numeric_columns = df.iloc[:, [0, 1, 2, 3, 4, 5, 6, 7, 12, 13, 14,15,16,17, 18,19,20,21,22,23, 24, 25, 26, 27, 28, 29, 30,31,32]]
 numeric_columns = df.select_dtypes(include=['number'])
-
-'''
-print(numeric_columns.iloc[:, 0:10].head())
-print(numeric_columns.iloc[:, 10:20].head())
-print(numeric_columns.iloc[:, 20:30].head())
-print(numeric_columns.iloc[:, 30:40].head())
-print(numeric_columns.iloc[:, 40:50].head())
-'''
 
 
 '''
@@ -82,7 +75,6 @@ print(numeric_columns.iloc[:, 40:50].head())
 30 G1 - first period grade (numeric: from 0 to 20)
 31 G2 - second period grade (numeric: from 0 to 20)
 32 G3 - final grade (numeric: from 0 to 20, output target)
-
 '''
 
 histogramWidth = 240
@@ -172,6 +164,90 @@ def update_tsne_plot(medu_selected, fedu_selected, studytime_selected):
     
     return fig
 
+categories = ['Mother Education (Medu)', 
+              'Father Education (Fedu)', 
+              'Study Time', 
+              "Travel time", 
+              "Failures",
+              "Weekend Alcohol Consuption",
+              "Workday Alcohol Consuption",
+              ]
+
+@app.callback(
+    Output('spider-chart', 'figure'),
+    Input('selected-points', 'data')
+)
+def create_spider_chart(selected_points):
+    fig = go.Figure()
+
+    # Filter the dataframe based on selected points
+    if selected_points:
+        selected_df = df.iloc[selected_points]
+    else:
+        selected_df = df  # If no points selected, show the full data
+
+    # Create a color scale based on the final grade (G3)
+    color_scale = px.colors.sequential.Viridis
+    max_grade = df['G3'].max()
+    min_grade = df['G3'].min()
+
+    # Define the radar chart categories
+    categories = [
+        'Mother Education (Medu)', 
+        'Father Education (Fedu)', 
+        'Study Time', 
+        'Travel Time', 
+        'Failures', 
+        'Weekend Alcohol Consumption (Walc)', 
+        'Workday Alcohol Consumption (Dalc)'
+    ]
+
+    # Add a trace for each selected student
+    for _, student in selected_df.iterrows():
+        # Normalize the G3 value to map it to the color scale
+        grade_normalized = (student['G3'] - min_grade) / (max_grade - min_grade)
+        color = px.colors.sample_colorscale(color_scale, grade_normalized)[0]
+
+        fig.add_trace(go.Scatterpolar(
+            r=[
+                student['Medu'], 
+                student['Fedu'], 
+                student['studytime'], 
+                student['traveltime'],  
+                student['failures'],
+                student['Walc'],                
+                student['Dalc']         
+            ],
+            theta=categories,
+            fill='none',
+            fillcolor=color,  # Fill color based on the grade (with normalized color)
+            line=dict(color=color),  # Set the opacity of the line
+            name=f"Student {_}",  # Optionally include student index or ID
+            opacity=0.5  # Set opacity for the fill area
+        ))
+
+    # Update layout of the chart
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 
+                       max(df['Medu'].max(), 
+                           df['Fedu'].max(), 
+                           df['studytime'].max(),  
+                           df['traveltime'].max(),  
+                           df['failures'].max(),
+                           df['Walc'].max(),
+                           df['Dalc'].max()   
+                        )]  # Adjust range
+            )
+        ),
+        showlegend=False,  # Hide the legend to avoid clutter
+        title="Radar Chart for Selected Students (Colored by Final Grade)"
+    )
+
+    return fig
+
 # App layout
 ##  ------------------------------------------------------------------------------
 
@@ -188,6 +264,7 @@ app.layout = html.Div([
                     style={'height': '600px', 'width': '800px'},
                     config={'displayModeBar': True},  # Enable tools for selection
                   ),
+        dcc.Graph(id='spider-chart', style={'height': '600px', 'width': '600px'}),  # Spider chart
     ], style={'display': 'flex', 'flex-direction': 'row'}),
     dcc.Store(id='selected-points', data=[]),  # Store for selected points
     html.Div(id='selection-output'),  # Div to display selected points
