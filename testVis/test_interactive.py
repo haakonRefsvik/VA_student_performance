@@ -85,6 +85,9 @@ print(numeric_columns.iloc[:, 40:50].head())
 
 '''
 
+histogramWidth = 240
+histogramHeight = 400
+histogramTitleFontSize = 16
 data_standardized = StandardScaler().fit_transform(numeric_columns)
 
 # Reduce dimensions with PCA (use 10 components as an example)
@@ -163,7 +166,11 @@ app.layout = html.Div([
         dcc.Graph(id='studytime-boxplot', style={'height': '100px', 'width': '200px'}),
     ], style={'display': 'flex', 'flex-direction': 'row', 'height': '300px'}),
     html.Div([
-        dcc.Graph(id='tsne-plot', figure=update_tsne_plot([], []), style={'height': '600px', 'width': '800px'}),
+        dcc.Graph(id='tsne-plot', 
+                    figure=update_tsne_plot([], []), 
+                    style={'height': '600px', 'width': '800px'},
+                    config={'displayModeBar': True},  # Enable tools for selection
+                  ),
     ], style={'display': 'flex', 'flex-direction': 'row'}),
     dcc.Store(id='selected-points', data=[]),  # Store for selected points
     html.Div(id='selection-output'),  # Div to display selected points
@@ -198,97 +205,116 @@ def display_selected_points(selected_points):
     Input('selected-points', 'data')
 )
 
-def update_studytime_boxplot(selected_points):
+def update_studytime_histogram(selected_points):
     # Filter the dataframe based on selected points if they exist
     if selected_points:
         selected_df = df.iloc[selected_points]
     else:
         selected_df = df
 
-    # Create the medu box plot
-    medu_fig = px.box(
-        selected_df, y='studytime',
+    # Create the histogram for studytime
+    studytime_fig = px.histogram(
+        selected_df,
+        x='studytime',
         title="Weekly studytime",
-        points="outliers",
+        labels={'studytime': 'Study Time'},
     )
-    medu_fig.update_layout(
-        height=350, 
-        width=250,
+
+    # Update layout to set specific tick values and labels
+    studytime_fig.update_layout(
+        height=histogramHeight,
+        width=histogramWidth,
         title_x=0.5,  # Center the title
-        yaxis=dict(
-            range=[1, 4],
+        xaxis=dict(
+            title = "",
             tickvals=[1, 2, 3, 4],
-            ticktext=["<2 hours", "2-5 hours", "5-10 hours", ">10 hours"], 
-            title=""
+            ticktext=["<2 hours", "2-5 hours", "5-10 hours", ">10 hours"],
+            showticklabels=False
+        ),
+        yaxis=dict(
+            title="",
         ),
         dragmode='select'
     )
-    medu_fig.update_traces(
-        marker=dict(color='red')
+
+    # Customize the appearance of the histogram bars
+    studytime_fig.update_traces(
+        marker=dict(color='blue')
     )
 
-    return medu_fig
+    return studytime_fig
 
 @app.callback(
     Output('medu-boxplot', 'figure'),
     Output('fedu-boxplot', 'figure'),
     Input('selected-points', 'data')
 )
-def update_education_boxplots(selected_points):
-    titleFontSize = 16
+def update_education_histograms(selected_points):
     # Filter the dataframe based on selected points if they exist
     if selected_points:
         selected_df = df.iloc[selected_points]
     else:
         selected_df = df
 
-    # Create the medu box plot
-    medu_fig = px.box(
-        selected_df, y='Medu',
+    # Create the medu histogram
+    medu_fig = px.histogram(
+        selected_df,
+        x='Medu',
         title="Mother's Education",
-        points="outliers",
+        labels={'Medu': "Mother's Education"},
     )
     medu_fig.update_layout(
-        height=350, 
-        width=250,
+        height=histogramHeight,
+        width=histogramWidth,
         title_x=0.5,  # Center the title
-        title_font=dict(size=titleFontSize),  # Set the title font size to 16 (adjust as needed)
-        yaxis=dict(
-            range=[0, 4],
+        title_font=dict(size=histogramTitleFontSize),  # Set the title font size
+        xaxis=dict(
             tickvals=[0, 1, 2, 3, 4],
-            ticktext=["None", "Primary", "5th-9th", "Secondary", "Higher"], 
-            title=""
+            ticktext=["None", "Primary", "5th-9th", "Secondary", "Higher"],
+            title="",
+            showticklabels=False
         ),
+        yaxis=dict(
+            title="",
+        ),
+        showlegend=False,  # Remove legend if not needed
         dragmode='select'
     )
     medu_fig.update_traces(
-        marker=dict(color='red')
+        marker=dict(color='blue')
     )
 
-    # Create the fedu box plot
-    fedu_fig = px.box(
-        selected_df, y='Fedu',
+    # Create the fedu histogram
+    fedu_fig = px.histogram(
+        selected_df,
+        x='Fedu',
         title="Father's Education",
-        points="outliers",
+        labels={'Fedu': "Father's Education"},
+        nbins=5,  # To align with the 5 education levels
     )
     fedu_fig.update_layout(
-        height=350, 
-        width=250,
+        height=histogramHeight,
+        width=histogramWidth,
         title_x=0.5,  # Center the title
-        title_font=dict(size=titleFontSize),  # Set the title font size to 16 (adjust as needed)
-        yaxis=dict(
-            range=[0, 4],
+        title_font=dict(size=histogramTitleFontSize),  # Set the title font size
+        xaxis=dict(
             tickvals=[0, 1, 2, 3, 4],
-            ticktext=["None", "Primary", "5th-9th", "Secondary", "Higher"], 
-            title=""
+            ticktext=["None", "Primary", "5th-9th", "Secondary", "Higher"],
+            title="",
+            showticklabels=False
         ),
+        yaxis=dict(
+            title="",
+        ),
+        showlegend=False,  # Remove legend if not needed
         dragmode='select'
     )
     fedu_fig.update_traces(
-        marker=dict(color='red')
+        marker=dict(color='blue')
     )
 
     return medu_fig, fedu_fig
+
 # Run the app
 if __name__ == '__main__':
     app.run_server(debug=True)
