@@ -7,7 +7,7 @@ from sklearn.discriminant_analysis import StandardScaler
 from sklearn.manifold import TSNE
 
 # Create a sample dataframe (you would load your dataset here)
-df = pd.read_csv('student_data.csv')
+df = pd.read_csv('data/student_data.csv')
 
 numeric_columns = df.iloc[:, [2, 6, 7, 12,
                               13, 14, 23, 24, 25, 26, 27, 28, 29, 32]]

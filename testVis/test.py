@@ -6,7 +6,7 @@ from sklearn.decomposition import PCA
 from sklearn import preprocessing
 from sklearn.manifold import TSNE
 
-df=pd.read_csv('student_data.csv')
+df=pd.read_csv('data/student_data.csv')
 
 numeric_columns = df.iloc[:, [6, 7, 32]]
 '''

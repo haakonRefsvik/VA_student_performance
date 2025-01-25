@@ -4,7 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # Example: load the dataset (replace with your actual DataFrame)
-df = pd.read_csv("student_data.csv")
+df = pd.read_csv("data/student_data.csv")
 
 # Step 1: Encode categorical variables to numeric values (if necessary)
 # For binary categorical columns, you can use Label Encoding

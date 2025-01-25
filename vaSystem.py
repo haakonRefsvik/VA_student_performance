@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots  # Import make_subplots
 
 # Load and preprocess the data
-df = pd.read_csv('student_data.csv')
+df = pd.read_csv('data/student_data.csv')
 
 ## Preprocessing data.
 df = pd.get_dummies(df, columns=['Mjob', 'Fjob', 'reason', 'guardian'], drop_first=True)

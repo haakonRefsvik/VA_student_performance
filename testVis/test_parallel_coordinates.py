@@ -3,7 +3,7 @@ import plotly.express as px
 
 # Assuming 'df' is your DataFrame containing the dataset
 # Load and preprocess the data
-df = pd.read_csv('student_data.csv')
+df = pd.read_csv('data/student_data.csv')
 
 fig = px.parallel_coordinates(
     df,
