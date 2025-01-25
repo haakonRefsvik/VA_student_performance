@@ -1,3 +1,5 @@
 .venv
 myenv/**
 venv/**
+
+.DS_Store
