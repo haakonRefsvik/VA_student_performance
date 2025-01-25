@@ -12,7 +12,7 @@ The authors of this project are **Group 6**, consisting of the following student
 - **Oskar Nesheim** - 2182767  
 - **Håkon Refsvik** - 2188403
 
-## How to run
+## Prerequisites
 
 This project requires the use of a virtual environment to run. Follow these steps:
 
@@ -47,6 +47,14 @@ This project requires the use of a virtual environment to run. Follow these step
    ```
 
    Replace `<package>` with the name of the package you want to install.
+
+## How to Run
+
+After installing the necessary prerequisites, the project can be run with the following command:
+
+```bash
+python3 vaSystem.py
+```
 
 ## Attribute Descriptions
 
