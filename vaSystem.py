@@ -145,10 +145,12 @@ app = dash.Dash(__name__)
 
 @app.callback(
     Output('tsne-plot', 'figure'),
-    [Input('studytime-boxplot', 'selectedData')
+    [Input('studytime-boxplot', 'selectedData'),
+     Input('wants-higher-boxplot', 'selectedData'),
+     Input('parents-together-boxplot', 'selectedData')
     ]
 )
-def update_tsne_plot(studytime_selected):
+def update_tsne_plot(studytime_selected, wants_higher_selected, parents_together_selected):
     # Determine which points are selected based on the boxplot selections
     selected_indices = set(range(len(df)))
 
@@ -157,6 +159,18 @@ def update_tsne_plot(studytime_selected):
         for point in studytime_selected['points']:
             studytime_indices.update(point['pointNumbers'])  # Use 'pointNumbers' for histogram bins
         selected_indices.intersection_update(studytime_indices)
+
+    if wants_higher_selected and 'points' in wants_higher_selected:
+        higher_indices = set()
+        for point in wants_higher_selected['points']:
+            higher_indices.update(point['pointNumbers'])  # Use 'pointNumbers' for histogram bins
+        selected_indices.intersection_update(higher_indices)
+
+    if parents_together_selected and 'points' in parents_together_selected:
+        parents_together_indices = set()
+        for point in parents_together_selected['points']:
+            parents_together_indices.update(point['pointNumbers'])  # Use 'pointNumbers' for histogram bins
+        selected_indices.intersection_update(parents_together_indices)
 
     # If no points are selected, show the full data
     if not selected_indices:
@@ -313,10 +327,12 @@ app.layout = html.Div([
     html.H1("Interactive t-SNE Visualization"),
     html.Div([
         dcc.Graph(id='studytime-boxplot', style={'height': '150px', 'width': '240px'}),
+        dcc.Graph(id='wants-higher-boxplot', style={'height': '150px', 'width': '240px'}),
+        dcc.Graph(id='parents-together-boxplot', style={'height': '150px', 'width': '240px'}),
     ], style={'display': 'flex', 'flex-direction': 'row', 'height': '350px'}),
     html.Div([
         dcc.Graph(id='tsne-plot', 
-                    figure=update_tsne_plot([]), 
+                    figure=update_tsne_plot([], [], []), 
                     style={'height': '600px', 'width': '800px'},
                     config={'displayModeBar': True},  # Enable tools for selection
                   ),
@@ -351,11 +367,54 @@ def display_selected_points(selected_points):
 
 
 @app.callback(
+    Output('wants-higher-boxplot', 'figure'),
+    Input('selected-points', 'data')
+)
+
+def update_higher_histogram(selected_points):
+    # Filter the dataframe based on selected points if they exist
+    if selected_points:
+        selected_df = df.iloc[selected_points]
+    else:
+        selected_df = df
+
+    wants_higer_fig = px.histogram(
+        selected_df,
+        x='higher',
+        title="Wants higher education",
+        labels={'higher': 'Wants'},
+    )
+
+    # Update layout to set specific tick values and labels
+    wants_higer_fig.update_layout(
+        height=histogramHeight,
+        width=histogramWidth,
+        title_x=0.5,  # Center the title
+        xaxis=dict(
+            title = "",
+            tickvals=[0, 1],
+            ticktext=["No", "Yes"],
+            showticklabels=False
+        ),
+        yaxis=dict(
+            title="",
+        ),
+        dragmode='select'
+    )
+
+    # Customize the appearance of the histogram bars
+    wants_higer_fig.update_traces(
+        marker=dict(color='blue')
+    )
+
+    return wants_higer_fig
+
+@app.callback(
     Output('studytime-boxplot', 'figure'),
     Input('selected-points', 'data')
 )
 
-def update_studytime_histogram(selected_points):
+def update_gender_histogram(selected_points):
     # Filter the dataframe based on selected points if they exist
     if selected_points:
         selected_df = df.iloc[selected_points]
@@ -393,6 +452,50 @@ def update_studytime_histogram(selected_points):
     )
 
     return studytime_fig
+
+@app.callback(
+    Output('parents-together-boxplot', 'figure'),
+    Input('selected-points', 'data')
+)
+
+def update_cohibition_histogram(selected_points):
+    # Filter the dataframe based on selected points if they exist
+    if selected_points:
+        selected_df = df.iloc[selected_points]
+    else:
+        selected_df = df
+
+    # Create the histogram for studytime
+    cohibition_fig = px.histogram(
+        selected_df,
+        x='Pstatus',
+        title="Parents together",
+        labels={'Pstatus': 'Parents together'},
+    )
+
+    # Update layout to set specific tick values and labels
+    cohibition_fig.update_layout(
+        height=histogramHeight,
+        width=histogramWidth,
+        title_x=0.5,  # Center the title
+        xaxis=dict(
+            title = "",
+            tickvals=[0, 1],
+            ticktext=["True", "False"],
+            showticklabels=False
+        ),
+        yaxis=dict(
+            title="",
+        ),
+        dragmode='select'
+    )
+
+    # Customize the appearance of the histogram bars
+    cohibition_fig.update_traces(
+        marker=dict(color='blue')
+    )
+
+    return cohibition_fig
 
 # Run the app
 if __name__ == '__main__':
