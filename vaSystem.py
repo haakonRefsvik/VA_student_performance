@@ -5,7 +5,7 @@ import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-from sklearn.preprocessing import KBinsDiscretizer, MinMaxScaler, OneHotEncoder, StandardScaler
+from sklearn.preprocessing import KBinsDiscretizer, StandardScaler
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots  # Import make_subplots
@@ -80,7 +80,6 @@ numeric_columns = df.select_dtypes(include=['number'])
 '''
 
 def explain_attribute(attribute, bin_value):
-    # Define the attributes and their descriptions
     attribute_details = {
         'Medu': ['None', 'Primary education (4th grade)', '5th to 9th grade', 'Secondary education', 'Higher education'],
         'Fedu': ['None', 'Primary education (4th grade)', '5th to 9th grade', 'Secondary education', 'Higher education'],
@@ -120,27 +119,21 @@ histogramHeight = 400
 histogramTitleFontSize = 16
 data_standardized = StandardScaler().fit_transform(numeric_columns)
 
-# Reduce dimensions with PCA (use 10 components as an example)
 pca = PCA(n_components=5)
 df_pca = pca.fit_transform(data_standardized)
 
-# Apply t-SNE
 tsne = TSNE(n_components=2, perplexity=15, learning_rate=200, random_state=42)
 tsne_results = tsne.fit_transform(df_pca)
 
-
-# Add t-SNE results back to the dataframe
 df['tsne-1'] = tsne_results[:, 0]
 df['tsne-2'] = tsne_results[:, 1]
 
-# Compute margins for zooming out
 x_margin = (df['tsne-1'].max() - df['tsne-1'].min()) * 0.1
 y_margin = (df['tsne-2'].max() - df['tsne-2'].min()) * 0.1
 
 x_min, x_max = df['tsne-1'].min() - x_margin, df['tsne-1'].max() + x_margin
 y_min, y_max = df['tsne-2'].min() - y_margin, df['tsne-2'].max() + y_margin
 
-# Initialize Dash app
 app = dash.Dash(__name__)
 
 @app.callback(
@@ -151,43 +144,40 @@ app = dash.Dash(__name__)
     ]
 )
 def update_tsne_plot(studytime_selected, wants_higher_selected, parents_together_selected):
-    # Determine which points are selected based on the boxplot selections
     selected_indices = set(range(len(df)))
 
     if studytime_selected and 'points' in studytime_selected:
         studytime_indices = set()
         for point in studytime_selected['points']:
-            studytime_indices.update(point['pointNumbers'])  # Use 'pointNumbers' for histogram bins
+            studytime_indices.update(point['pointNumbers']) 
         selected_indices.intersection_update(studytime_indices)
 
     if wants_higher_selected and 'points' in wants_higher_selected:
         higher_indices = set()
         for point in wants_higher_selected['points']:
-            higher_indices.update(point['pointNumbers'])  # Use 'pointNumbers' for histogram bins
+            higher_indices.update(point['pointNumbers'])  
         selected_indices.intersection_update(higher_indices)
 
     if parents_together_selected and 'points' in parents_together_selected:
         parents_together_indices = set()
         for point in parents_together_selected['points']:
-            parents_together_indices.update(point['pointNumbers'])  # Use 'pointNumbers' for histogram bins
+            parents_together_indices.update(point['pointNumbers'])  
         selected_indices.intersection_update(parents_together_indices)
 
-    # If no points are selected, show the full data
     if not selected_indices:
         selected_df = df
     else:
-        # Filter the dataframe to only show selected points
         selected_df = df.iloc[list(selected_indices)]
     
-    # Create a scatter plot based on the selected points
+
     fig = px.scatter(
         selected_df, x='tsne-1', y='tsne-2', color='G3',
         title="t-SNE Visualization",
         labels={'G3': 'Final Grade'},
-        hover_data={'tsne-1': False, 'tsne-2': False,  # Exclude tsne-1 and tsne-2
-                    'age': True, 'Medu': True, 'Fedu': True},  # Show only age, Medu, Fedu
-        color_continuous_scale='Viridis',  # Consistent color scale
-        range_color=[0, 20]  # Fixed color range from 0 to 20 (minimum to maximum grade)
+        hover_data={'tsne-1': False, 'tsne-2': False, 
+                    'age': True, 'Medu': True, 'Fedu': True},  
+        color_continuous_scale='Viridis',  
+        range_color=[0, 20]  
     )
 
     fig.update_layout(
@@ -208,22 +198,18 @@ categories = ['Mother Education (Medu)',
               "Workday Alcohol Consuption",
               ]
 
-# Function to create the heatmap
 @app.callback(
     Output('heatmap', 'figure'),
     Input('selected-points', 'data')
 )
 def create_heatmap(selected_points):
-    # If selected points are available, filter the dataframe accordingly
     if selected_points:
         selected_df = df.iloc[selected_points]
     else:
         selected_df = df  # Show full dataset if no points are selected
 
-    # Define the attributes to include in the heatmap
     attributes = ['Medu', 'Fedu', 'failures', 'studytime', 'traveltime', 'Walc', 'Dalc', 'health', 'famrel', 'goout', 'freetime']
     
-    # Define custom titles for the attributes
     custom_titles = {
         'Medu': 'Mother Education Level',
         'Fedu': 'Father Education Level',
@@ -238,77 +224,56 @@ def create_heatmap(selected_points):
         'freetime': 'Freetime after school'
     }
     
-    # Define the number of bins for each attribute
     num_bins = {
         'Medu': 5, 'Fedu': 5, 'failures': 4, 'studytime': 4, 'traveltime': 4,
         'Walc': 5, 'Dalc': 5, 'health': 5, 'famrel': 5, 'goout': 5, 'freetime': 5
     }
     
-    # Create dataframes to hold the heatmap data and text
-    heatmap_data = pd.DataFrame(columns=attributes, index=[0, 1, 2, 3, 4])  # Maximum 5 bins
-    text_data = pd.DataFrame(columns=attributes, index=[0, 1, 2, 3, 4])  # For text labels inside cells
-    hover_text = pd.DataFrame(columns=attributes, index=[0, 1, 2, 3, 4])  # For hover text
+    heatmap_data = pd.DataFrame(columns=attributes, index=[0, 1, 2, 3, 4])  
+    text_data = pd.DataFrame(columns=attributes, index=[0, 1, 2, 3, 4])  
+    hover_text = pd.DataFrame(columns=attributes, index=[0, 1, 2, 3, 4])  
 
-    # Bin and count for each attribute
     for attribute in attributes:
-        # Get the number of bins for the current attribute
         bins = num_bins[attribute]
-        
-        # Create a binning transformer with the appropriate number of bins
         discretizer = KBinsDiscretizer(n_bins=bins, encode='ordinal', strategy='uniform')
 
-        # Reshape the data to fit the discretizer and transform it into bins
         try:
             binned_data = discretizer.fit_transform(selected_df[[attribute]])
         except ValueError:
-            # Handle attributes with no variation or insufficient data
             binned_data = np.zeros((selected_df.shape[0], 1))
 
-        # Count how many students fall into each bin for the current attribute
         bin_counts = pd.Series(binned_data.flatten()).value_counts().sort_index()
-
-        # Reindex to ensure all bins (0 to bins-1) are present, filling missing bins with 0
         bin_counts = bin_counts.reindex(range(bins)).fillna(0).astype(int)
-
-        # Normalize the bin counts for each attribute (relative scale)
         total_count = bin_counts.sum()
         if total_count > 0:
             bin_counts_normalized = bin_counts / total_count
         else:
-            bin_counts_normalized = bin_counts  # No normalization if no data is available
+            bin_counts_normalized = bin_counts  
 
-        # Fill the heatmap dataframe with the normalized bin counts
         heatmap_data.loc[0:bins - 1, attribute] = bin_counts_normalized
-        # Display normalized bin counts with 1 digit after the decimal point
-        
         text_data.loc[0:bins - 1, attribute] = bin_counts_normalized.apply(lambda x: f"{x:.1f}")
-
-        # Fill the hover text with custom explanations
         hover_text.loc[0:bins - 1, attribute] = [
             f"{explain_attribute(attribute, bin_idx)}: {float(distr) * 100:.1f}% of students"
             for bin_idx, distr in enumerate(bin_counts_normalized)
         ]
 
-    # Replace any remaining NaN values in heatmap_data with 0
     heatmap_data.fillna(0, inplace=True)
 
-    # Create the heatmap figure
     fig = go.Figure(go.Heatmap(
-        z=heatmap_data.T.values,  # Values for the heatmap (transposed to fit the layout)
-        x=heatmap_data.index,  # Binned values (0, 1, 2, 3, 4)
-        y=[custom_titles[attr] for attr in heatmap_data.columns],  # Custom titles for attributes
-        colorscale='Inferno',  # Color scale
-        zmin=0,  # Ensure the color scale starts at 0
-        zmax=1,  # Ensure the color scale is capped at 1
+        z=heatmap_data.T.values, 
+        x=heatmap_data.index,  
+        y=[custom_titles[attr] for attr in heatmap_data.columns], 
+        colorscale='Inferno',  
+        zmin=0, 
+        zmax=1,  
         colorbar=dict(title='Relative Distribution'),
         showscale=True,
 
-        texttemplate='%{text}',  # Use the text inside the cells
-        hoverinfo='text',  # Show the text on hover
-        hovertext=hover_text.T.values,  # Custom hover text
+        texttemplate='%{text}',  
+        hoverinfo='text',  
+        hovertext=hover_text.T.values,  
     ))
 
-    # Update layout
     fig.update_layout(
         title="Heatmap of Students' Attribute Bins (Normalized to Max 1)",
         xaxis_title="Attribute Bins (0-4)",
@@ -334,17 +299,16 @@ app.layout = html.Div([
         dcc.Graph(id='tsne-plot', 
                     figure=update_tsne_plot([], [], []), 
                     style={'height': '600px', 'width': '800px'},
-                    config={'displayModeBar': True},  # Enable tools for selection
+                    config={'displayModeBar': True},  
                   ),
-        dcc.Graph(id='heatmap', style={'height': '600px', 'width': '600px'}),  # heatmap
+        dcc.Graph(id='heatmap', style={'height': '600px', 'width': '600px'}), 
     ], style={'display': 'flex', 'flex-direction': 'row'}),
-    dcc.Store(id='selected-points', data=[]),  # Store for selected points
-    html.Div(id='selection-output'),  # Div to display selected points
+    dcc.Store(id='selected-points', data=[]),  
+    html.Div(id='selection-output'), 
 ])
 
 ##  ------------------------------------------------------------------------------
 
-# Callback to store selected points
 @app.callback(
     Output('selected-points', 'data'),
     Input('tsne-plot', 'selectedData')
@@ -353,9 +317,9 @@ def store_selected_points(selected_data):
     if selected_data:
         selected_points = [point['pointIndex'] for point in selected_data['points']]
         return selected_points
-    return []  # Return an empty list if no points are selected
+    return []
+    
 
-# Callback to display selected points
 @app.callback(
     Output('selection-output', 'children'),
     Input('selected-points', 'data')
@@ -372,7 +336,6 @@ def display_selected_points(selected_points):
 )
 
 def update_higher_histogram(selected_points):
-    # Filter the dataframe based on selected points if they exist
     if selected_points:
         selected_df = df.iloc[selected_points]
     else:
@@ -385,11 +348,10 @@ def update_higher_histogram(selected_points):
         labels={'higher': 'Wants'},
     )
 
-    # Update layout to set specific tick values and labels
     wants_higer_fig.update_layout(
         height=histogramHeight,
         width=histogramWidth,
-        title_x=0.5,  # Center the title
+        title_x=0.5,
         xaxis=dict(
             title = "",
             tickvals=[0, 1],
@@ -402,7 +364,6 @@ def update_higher_histogram(selected_points):
         dragmode='select'
     )
 
-    # Customize the appearance of the histogram bars
     wants_higer_fig.update_traces(
         marker=dict(color='blue')
     )
@@ -415,13 +376,11 @@ def update_higher_histogram(selected_points):
 )
 
 def update_gender_histogram(selected_points):
-    # Filter the dataframe based on selected points if they exist
     if selected_points:
         selected_df = df.iloc[selected_points]
     else:
         selected_df = df
 
-    # Create the histogram for studytime
     studytime_fig = px.histogram(
         selected_df,
         x='sex',
@@ -429,11 +388,10 @@ def update_gender_histogram(selected_points):
         labels={'sex': 'Gender'},
     )
 
-    # Update layout to set specific tick values and labels
     studytime_fig.update_layout(
         height=histogramHeight,
         width=histogramWidth,
-        title_x=0.5,  # Center the title
+        title_x=0.5,  
         xaxis=dict(
             title = "",
             tickvals=[0, 1],
@@ -446,7 +404,6 @@ def update_gender_histogram(selected_points):
         dragmode='select'
     )
 
-    # Customize the appearance of the histogram bars
     studytime_fig.update_traces(
         marker=dict(color='blue')
     )
@@ -459,13 +416,11 @@ def update_gender_histogram(selected_points):
 )
 
 def update_cohibition_histogram(selected_points):
-    # Filter the dataframe based on selected points if they exist
     if selected_points:
         selected_df = df.iloc[selected_points]
     else:
         selected_df = df
 
-    # Create the histogram for studytime
     cohibition_fig = px.histogram(
         selected_df,
         x='Pstatus',
@@ -473,11 +428,10 @@ def update_cohibition_histogram(selected_points):
         labels={'Pstatus': 'Parents together'},
     )
 
-    # Update layout to set specific tick values and labels
     cohibition_fig.update_layout(
         height=histogramHeight,
         width=histogramWidth,
-        title_x=0.5,  # Center the title
+        title_x=0.5,
         xaxis=dict(
             title = "",
             tickvals=[0, 1],
@@ -490,13 +444,11 @@ def update_cohibition_histogram(selected_points):
         dragmode='select'
     )
 
-    # Customize the appearance of the histogram bars
     cohibition_fig.update_traces(
         marker=dict(color='blue')
     )
 
     return cohibition_fig
 
-# Run the app
 if __name__ == '__main__':
     app.run_server(debug=True)
