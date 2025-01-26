@@ -78,6 +78,42 @@ numeric_columns = df.select_dtypes(include=['number'])
 32 G3 - final grade (numeric: from 0 to 20, output target)
 '''
 
+def explain_attribute(attribute, bin_value):
+    # Define the attributes and their descriptions
+    attribute_details = {
+        'Medu': ['None', 'Primary education (4th grade)', '5th to 9th grade', 'Secondary education', 'Higher education'],
+        'Fedu': ['None', 'Primary education (4th grade)', '5th to 9th grade', 'Secondary education', 'Higher education'],
+        'reason': ['Close to home', 'School reputation', 'Course preference', 'Other'],
+        'traveltime': ['<15 min.', '15 to 30 min.', '30 min. to 1 hour', '>1 hour'],
+        'studytime': ['<2 hours', '2 to 5 hours', '5 to 10 hours', '>10 hours'],
+        'failures': ['None', '1', '2', '3 or more'],
+        'famrel': ['Very bad', 'Bad', 'Neutral', 'Good', 'Excellent'],
+        'freetime': ['Very low', 'Low', 'Neutral', 'High', 'Very high'],
+        'goout': ['Very low', 'Low', 'Neutral', 'High', 'Very high'],
+        'Dalc': ['Very low', 'Low', 'Neutral', 'High', 'Very high'],
+        'Walc': ['Very low', 'Low', 'Neutral', 'High', 'Very high'],
+        'health': ['Very bad', 'Bad', 'Neutral', 'Good', 'Very good'],
+        'absences': [
+            f'{int((93 / 5) * bin_value)} - {int((93 / 5) * (bin_value + 1) - 1)} absences' for bin_value in range(5)
+        ],
+        'G1': [
+            f'{int((20 / 5) * bin_value)} - {int((20 / 5) * (bin_value + 1) - 1)} grade' for bin_value in range(5)
+        ],
+        'G2': [
+            f'{int((20 / 5) * bin_value)} - {int((20 / 5) * (bin_value + 1) - 1)} grade' for bin_value in range(5)
+        ],
+        'G3': [
+            f'{int((20 / 5) * bin_value)} - {int((20 / 5) * (bin_value + 1) - 1)} grade' for bin_value in range(5)
+        ]
+    }
+
+    # Check if the attribute exists and bin_value is within the range
+    if attribute in attribute_details and 0 <= bin_value < len(attribute_details[attribute]):
+        return attribute_details[attribute][bin_value]
+    else:
+        return "Invalid attribute or bin value."
+
+
 histogramWidth = 240
 histogramHeight = 400
 histogramTitleFontSize = 16
@@ -186,7 +222,7 @@ def create_heatmap(selected_points):
         selected_df = df  # Show full dataset if no points are selected
 
     # Define the attributes to include in the heatmap
-    attributes = ['Medu', 'Fedu', 'failures', 'studytime', 'traveltime', 'Walc', 'Dalc', 'health', 'famrel', 'goout']
+    attributes = ['Medu', 'Fedu', 'failures', 'studytime', 'traveltime', 'Walc', 'Dalc', 'health', 'famrel', 'goout', 'freetime']
     
     # Define custom titles for the attributes
     custom_titles = {
@@ -198,33 +234,50 @@ def create_heatmap(selected_points):
         'Walc': 'Weekend Alcohol Consumption',
         'Dalc': 'Workday Alcohol Consumption',
         'health': 'Quality of health',
-        'famrel': 'quality of family relationships',
-        'goout': 'going out with friends'
+        'famrel': 'Quality of Family Relationships',
+        'goout': 'Going Out with Friends',
+        'freetime': 'Freetime after school'
     }
     
-    # Create a binning transformer to discretize values into 5 bins
-    discretizer = KBinsDiscretizer(n_bins=5, encode='ordinal', strategy='uniform')
-
-    # Create a dataframe to hold the counts of students per bin per attribute
-    heatmap_data = pd.DataFrame(columns=attributes, index=[0, 1, 2, 3, 4])
+    # Define the number of bins for each attribute
+    num_bins = {
+        'Medu': 5, 'Fedu': 5, 'failures': 4, 'studytime': 4, 'traveltime': 4,
+        'Walc': 5, 'Dalc': 5, 'health': 5, 'famrel': 5, 'goout': 5, 'freetime': 5
+    }
+    
+    # Create dataframes to hold the heatmap data and text
+    heatmap_data = pd.DataFrame(columns=attributes, index=[0, 1, 2, 3, 4])  # Maximum 5 bins
     text_data = pd.DataFrame(columns=attributes, index=[0, 1, 2, 3, 4])  # For text labels inside cells
+    hover_text = pd.DataFrame(columns=attributes, index=[0, 1, 2, 3, 4])  # For hover text
 
     # Bin and count for each attribute
     for attribute in attributes:
+        # Get the number of bins for the current attribute
+        bins = num_bins[attribute]
+        
+        # Create a binning transformer with the appropriate number of bins
+        discretizer = KBinsDiscretizer(n_bins=bins, encode='ordinal', strategy='uniform')
+
         # Reshape the data to fit the discretizer and transform it into bins
         binned_data = discretizer.fit_transform(selected_df[[attribute]])
 
         # Count how many students fall into each bin for the current attribute
         bin_counts = pd.Series(binned_data.flatten()).value_counts().sort_index()
 
-        # Reindex to ensure all bins (0-4) are present, filling missing bins with 0
-        bin_counts = bin_counts.reindex([0, 1, 2, 3, 4]).fillna(0).astype(int)
+        # Reindex to ensure all bins (0 to bins-1) are present, filling missing bins with 0
+        bin_counts = bin_counts.reindex(range(bins)).fillna(0).astype(int)
 
         # Fill the heatmap dataframe with the bin counts
-        heatmap_data[attribute] = bin_counts
+        heatmap_data.loc[0:bins - 1, attribute] = bin_counts
 
         # Fill the text dataframe with the bin counts as text
-        text_data[attribute] = bin_counts.astype(str)  # Convert counts to string for text
+        text_data.loc[0:bins - 1, attribute] = bin_counts.astype(str)  # Convert counts to string for text
+        
+        # Fill the hover text with custom explanations
+        hover_text.loc[0:bins - 1, attribute] = [
+            f"{explain_attribute(attribute, bin_idx)}: {count} students"
+            for bin_idx, count in enumerate(bin_counts)
+        ]
 
     # Create the heatmap figure
     fig = go.Figure(go.Heatmap(
@@ -237,6 +290,7 @@ def create_heatmap(selected_points):
         text=text_data.T.values,  # The text for each cell
         texttemplate='%{text}',  # Use the text inside the cells
         hoverinfo='text',  # Show the text on hover
+        hovertext=hover_text.T.values,  # Custom hover text
     ))
 
     # Update layout
@@ -249,6 +303,7 @@ def create_heatmap(selected_points):
     )
 
     return fig
+
 
 # App layout
 ##  ------------------------------------------------------------------------------
@@ -374,7 +429,7 @@ def update_education_histograms(selected_points):
         yaxis=dict(
             title="",
         ),
-        showlegend=False,  # Remove legend if not needed
+        showlegend=False, 
         dragmode='select'
     )
     medu_fig.update_traces(
@@ -387,13 +442,13 @@ def update_education_histograms(selected_points):
         x='Fedu',
         title="Father's Education",
         labels={'Fedu': "Father's Education"},
-        nbins=5,  # To align with the 5 education levels
+        nbins=5, 
     )
     fedu_fig.update_layout(
         height=histogramHeight,
         width=histogramWidth,
-        title_x=0.5,  # Center the title
-        title_font=dict(size=histogramTitleFontSize),  # Set the title font size
+        title_x=0.5, 
+        title_font=dict(size=histogramTitleFontSize),  
         xaxis=dict(
             tickvals=[0, 1, 2, 3, 4],
             ticktext=["None", "Primary", "5th-9th", "Secondary", "Higher"],
@@ -403,7 +458,7 @@ def update_education_histograms(selected_points):
         yaxis=dict(
             title="",
         ),
-        showlegend=False,  # Remove legend if not needed
+        showlegend=False,
         dragmode='select'
     )
     fedu_fig.update_traces(
