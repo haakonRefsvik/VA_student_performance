@@ -1,5 +1,6 @@
 import dash
 from dash import dcc, html, Input, Output
+import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import PCA
@@ -144,28 +145,12 @@ app = dash.Dash(__name__)
 
 @app.callback(
     Output('tsne-plot', 'figure'),
-    [Input('medu-boxplot', 'selectedData'),
-     Input('fedu-boxplot', 'selectedData'),
-     Input('studytime-boxplot', 'selectedData')
+    [Input('studytime-boxplot', 'selectedData')
     ]
 )
-def update_tsne_plot(medu_selected, fedu_selected, studytime_selected):
+def update_tsne_plot(studytime_selected):
     # Determine which points are selected based on the boxplot selections
     selected_indices = set(range(len(df)))
-
-    # Process selections from the Medu histogram
-    if medu_selected and 'points' in medu_selected:
-        medu_indices = set()
-        for point in medu_selected['points']:
-            medu_indices.update(point['pointNumbers'])  # Use 'pointNumbers' for histogram bins
-
-        selected_indices.intersection_update(medu_indices)
-
-    if fedu_selected and 'points' in fedu_selected:
-        fedu_indices = set()
-        for point in fedu_selected['points']:
-            fedu_indices.update(point['pointNumbers'])  # Use 'pointNumbers' for histogram bins
-        selected_indices.intersection_update(fedu_indices)
 
     if studytime_selected and 'points' in studytime_selected:
         studytime_indices = set()
@@ -259,7 +244,11 @@ def create_heatmap(selected_points):
         discretizer = KBinsDiscretizer(n_bins=bins, encode='ordinal', strategy='uniform')
 
         # Reshape the data to fit the discretizer and transform it into bins
-        binned_data = discretizer.fit_transform(selected_df[[attribute]])
+        try:
+            binned_data = discretizer.fit_transform(selected_df[[attribute]])
+        except ValueError:
+            # Handle attributes with no variation or insufficient data
+            binned_data = np.zeros((selected_df.shape[0], 1))
 
         # Count how many students fall into each bin for the current attribute
         bin_counts = pd.Series(binned_data.flatten()).value_counts().sort_index()
@@ -267,17 +256,27 @@ def create_heatmap(selected_points):
         # Reindex to ensure all bins (0 to bins-1) are present, filling missing bins with 0
         bin_counts = bin_counts.reindex(range(bins)).fillna(0).astype(int)
 
-        # Fill the heatmap dataframe with the bin counts
-        heatmap_data.loc[0:bins - 1, attribute] = bin_counts
+        # Normalize the bin counts for each attribute (relative scale)
+        total_count = bin_counts.sum()
+        if total_count > 0:
+            bin_counts_normalized = bin_counts / total_count
+        else:
+            bin_counts_normalized = bin_counts  # No normalization if no data is available
 
-        # Fill the text dataframe with the bin counts as text
-        text_data.loc[0:bins - 1, attribute] = bin_counts.astype(str)  # Convert counts to string for text
+        # Fill the heatmap dataframe with the normalized bin counts
+        heatmap_data.loc[0:bins - 1, attribute] = bin_counts_normalized
+        # Display normalized bin counts with 1 digit after the decimal point
         
+        text_data.loc[0:bins - 1, attribute] = bin_counts_normalized.apply(lambda x: f"{x:.1f}")
+
         # Fill the hover text with custom explanations
         hover_text.loc[0:bins - 1, attribute] = [
-            f"{explain_attribute(attribute, bin_idx)}: {count} students"
-            for bin_idx, count in enumerate(bin_counts)
+            f"{explain_attribute(attribute, bin_idx)}: {float(distr) * 100:.1f}% of students"
+            for bin_idx, distr in enumerate(bin_counts_normalized)
         ]
+
+    # Replace any remaining NaN values in heatmap_data with 0
+    heatmap_data.fillna(0, inplace=True)
 
     # Create the heatmap figure
     fig = go.Figure(go.Heatmap(
@@ -285,9 +284,11 @@ def create_heatmap(selected_points):
         x=heatmap_data.index,  # Binned values (0, 1, 2, 3, 4)
         y=[custom_titles[attr] for attr in heatmap_data.columns],  # Custom titles for attributes
         colorscale='Inferno',  # Color scale
-        colorbar=dict(title='Number of Students'),
+        zmin=0,  # Ensure the color scale starts at 0
+        zmax=1,  # Ensure the color scale is capped at 1
+        colorbar=dict(title='Relative Distribution'),
         showscale=True,
-        text=text_data.T.values,  # The text for each cell
+
         texttemplate='%{text}',  # Use the text inside the cells
         hoverinfo='text',  # Show the text on hover
         hovertext=hover_text.T.values,  # Custom hover text
@@ -295,7 +296,7 @@ def create_heatmap(selected_points):
 
     # Update layout
     fig.update_layout(
-        title="Heatmap of Students' Attribute Bins with Counts",
+        title="Heatmap of Students' Attribute Bins (Normalized to Max 1)",
         xaxis_title="Attribute Bins (0-4)",
         yaxis_title="",
         height=600,
@@ -311,13 +312,11 @@ def create_heatmap(selected_points):
 app.layout = html.Div([
     html.H1("Interactive t-SNE Visualization"),
     html.Div([
-        dcc.Graph(id='medu-boxplot', style={'height': '150px', 'width': '240px'}),
-        dcc.Graph(id='fedu-boxplot', style={'height': '150px', 'width': '240px'}),
         dcc.Graph(id='studytime-boxplot', style={'height': '150px', 'width': '240px'}),
     ], style={'display': 'flex', 'flex-direction': 'row', 'height': '350px'}),
     html.Div([
         dcc.Graph(id='tsne-plot', 
-                    figure=update_tsne_plot([], [], []), 
+                    figure=update_tsne_plot([]), 
                     style={'height': '600px', 'width': '800px'},
                     config={'displayModeBar': True},  # Enable tools for selection
                   ),
@@ -366,9 +365,9 @@ def update_studytime_histogram(selected_points):
     # Create the histogram for studytime
     studytime_fig = px.histogram(
         selected_df,
-        x='studytime',
-        title="Weekly studytime",
-        labels={'studytime': 'Study Time'},
+        x='sex',
+        title="Gender",
+        labels={'sex': 'Gender'},
     )
 
     # Update layout to set specific tick values and labels
@@ -378,8 +377,8 @@ def update_studytime_histogram(selected_points):
         title_x=0.5,  # Center the title
         xaxis=dict(
             title = "",
-            tickvals=[1, 2, 3, 4],
-            ticktext=["<2 hours", "2-5 hours", "5-10 hours", ">10 hours"],
+            tickvals=[0, 1],
+            ticktext=["Female", "Male"],
             showticklabels=False
         ),
         yaxis=dict(
@@ -394,78 +393,6 @@ def update_studytime_histogram(selected_points):
     )
 
     return studytime_fig
-
-@app.callback(
-    Output('medu-boxplot', 'figure'),
-    Output('fedu-boxplot', 'figure'),
-    Input('selected-points', 'data')
-)
-def update_education_histograms(selected_points):
-    # Filter the dataframe based on selected points if they exist
-    if selected_points:
-        selected_df = df.iloc[selected_points]
-    else:
-        selected_df = df
-
-    # Create the medu histogram
-    medu_fig = px.histogram(
-        selected_df,
-        x='Medu',
-        title="Mother's Education",
-        labels={'Medu': "Mother's Education"},
-        nbins=5,  # To align with the 5 education levels
-    )
-    medu_fig.update_layout(
-        height=histogramHeight,
-        width=histogramWidth,
-        title_x=0.5,  # Center the title
-        title_font=dict(size=histogramTitleFontSize),  # Set the title font size
-        xaxis=dict(
-            tickvals=[0, 1, 2, 3, 4],
-            ticktext=["None", "Primary", "5th-9th", "Secondary", "Higher"],
-            title="",
-            showticklabels=False
-        ),
-        yaxis=dict(
-            title="",
-        ),
-        showlegend=False, 
-        dragmode='select'
-    )
-    medu_fig.update_traces(
-        marker=dict(color='blue')
-    )
-
-    # Create the fedu histogram
-    fedu_fig = px.histogram(
-        selected_df,
-        x='Fedu',
-        title="Father's Education",
-        labels={'Fedu': "Father's Education"},
-        nbins=5, 
-    )
-    fedu_fig.update_layout(
-        height=histogramHeight,
-        width=histogramWidth,
-        title_x=0.5, 
-        title_font=dict(size=histogramTitleFontSize),  
-        xaxis=dict(
-            tickvals=[0, 1, 2, 3, 4],
-            ticktext=["None", "Primary", "5th-9th", "Secondary", "Higher"],
-            title="",
-            showticklabels=False
-        ),
-        yaxis=dict(
-            title="",
-        ),
-        showlegend=False,
-        dragmode='select'
-    )
-    fedu_fig.update_traces(
-        marker=dict(color='blue')
-    )
-
-    return medu_fig, fedu_fig
 
 # Run the app
 if __name__ == '__main__':
