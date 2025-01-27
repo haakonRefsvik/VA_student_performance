@@ -494,6 +494,7 @@ def update_grade_histogram(selected_points):
         title_x=0.5,
         xaxis=dict(
             title = "",
+            range=[0, 20],  # Ensure the x-axis range is from 0 to 20
         ),
         yaxis=dict(
             title="",
