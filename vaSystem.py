@@ -138,12 +138,13 @@ app = dash.Dash(__name__)
 
 @app.callback(
     Output('tsne-plot', 'figure'),
-    [Input('studytime-boxplot', 'selectedData'),
-     Input('wants-higher-boxplot', 'selectedData'),
-     Input('parents-together-boxplot', 'selectedData')
+    [Input('gender-histogram', 'selectedData'),
+     Input('wants-higher-histogram', 'selectedData'),
+     Input('parents-together-histogram', 'selectedData'),
+    Input('grade-histogram', 'selectedData')
     ]
 )
-def update_tsne_plot(studytime_selected, wants_higher_selected, parents_together_selected):
+def update_tsne_plot(studytime_selected, wants_higher_selected, parents_together_selected, grade_selected):    
     selected_indices = set(range(len(df)))
 
     if studytime_selected and 'points' in studytime_selected:
@@ -164,14 +165,21 @@ def update_tsne_plot(studytime_selected, wants_higher_selected, parents_together
             parents_together_indices.update(point['pointNumbers'])  
         selected_indices.intersection_update(parents_together_indices)
 
-    if not selected_indices:
-        selected_df = df
-    else:
-        selected_df = df.iloc[list(selected_indices)]
-    
+    if grade_selected and 'points' in grade_selected:
+        grades_indices = set()
+        for point in grade_selected['points']:
+            grades_indices.update(point['pointNumbers'])  
+        selected_indices.intersection_update(grades_indices)
 
+    if(len(selected_indices) != 0):
+        df['highlight'] = 0.2 
+
+    df.loc[list(selected_indices), 'highlight'] = 1  # Set opacity to fully visible for selected points
+
+    # Create the scatter plot
     fig = px.scatter(
-        selected_df, x='tsne-1', y='tsne-2', color='G3',
+        df, x='tsne-1', y='tsne-2', color='G3',
+        opacity=df['highlight'],  # Use the 'highlight' column for opacity
         title="t-SNE Visualization",
         labels={'G3': 'Final Grade'},
         hover_data={'tsne-1': False, 'tsne-2': False, 
@@ -189,6 +197,7 @@ def update_tsne_plot(studytime_selected, wants_higher_selected, parents_together
     
     return fig
 
+
 categories = ['Mother Education (Medu)', 
               'Father Education (Fedu)', 
               'Study Time', 
@@ -200,13 +209,22 @@ categories = ['Mother Education (Medu)',
 
 @app.callback(
     Output('heatmap', 'figure'),
-    Input('selected-points', 'data')
+    [Input('selected-points', 'data'),
+    Input('grade-histogram', 'selectedData')
+     ]
 )
-def create_heatmap(selected_points):
+def create_heatmap(selected_points, grade_points):
+    selected_df = df  # Show full dataset if no points are selected
+
+    if grade_points and grade_points['points']:
+        l = list()
+        for points in grade_points['points']:
+            for p in points['pointNumbers']:
+                l.append(p)
+
+        selected_df = df.iloc[l]
     if selected_points:
         selected_df = df.iloc[selected_points]
-    else:
-        selected_df = df  # Show full dataset if no points are selected
 
     attributes = ['Medu', 'Fedu', 'failures', 'studytime', 'traveltime', 'Walc', 'Dalc', 'health', 'famrel', 'goout', 'freetime']
     
@@ -291,13 +309,14 @@ def create_heatmap(selected_points):
 app.layout = html.Div([
     html.H1("Interactive t-SNE Visualization"),
     html.Div([
-        dcc.Graph(id='studytime-boxplot', style={'height': '150px', 'width': '240px'}),
-        dcc.Graph(id='wants-higher-boxplot', style={'height': '150px', 'width': '240px'}),
-        dcc.Graph(id='parents-together-boxplot', style={'height': '150px', 'width': '240px'}),
+        dcc.Graph(id='gender-histogram', style={'height': '150px', 'width': '240px'}),
+        dcc.Graph(id='wants-higher-histogram', style={'height': '150px', 'width': '240px'}),
+        dcc.Graph(id='parents-together-histogram', style={'height': '150px', 'width': '240px'}),
+        dcc.Graph(id='grade-histogram', style={'height': '150px', 'width': '540px'}),
     ], style={'display': 'flex', 'flex-direction': 'row', 'height': '350px'}),
     html.Div([
         dcc.Graph(id='tsne-plot', 
-                    figure=update_tsne_plot([], [], []), 
+                    figure=update_tsne_plot([], [], [], []), 
                     style={'height': '600px', 'width': '800px'},
                     config={'displayModeBar': True},  
                   ),
@@ -311,12 +330,15 @@ app.layout = html.Div([
 
 @app.callback(
     Output('selected-points', 'data'),
-    Input('tsne-plot', 'selectedData')
+    [Input('tsne-plot', 'selectedData'),
+     ]
 )
 def store_selected_points(selected_data):
+
     if selected_data:
         selected_points = [point['pointIndex'] for point in selected_data['points']]
         return selected_points
+    
     return []
     
 
@@ -331,7 +353,7 @@ def display_selected_points(selected_points):
 
 
 @app.callback(
-    Output('wants-higher-boxplot', 'figure'),
+    Output('wants-higher-histogram', 'figure'),
     Input('selected-points', 'data')
 )
 
@@ -356,7 +378,6 @@ def update_higher_histogram(selected_points):
             title = "",
             tickvals=[0, 1],
             ticktext=["No", "Yes"],
-            showticklabels=False
         ),
         yaxis=dict(
             title="",
@@ -371,7 +392,7 @@ def update_higher_histogram(selected_points):
     return wants_higer_fig
 
 @app.callback(
-    Output('studytime-boxplot', 'figure'),
+    Output('gender-histogram', 'figure'),
     Input('selected-points', 'data')
 )
 
@@ -396,7 +417,6 @@ def update_gender_histogram(selected_points):
             title = "",
             tickvals=[0, 1],
             ticktext=["Female", "Male"],
-            showticklabels=False
         ),
         yaxis=dict(
             title="",
@@ -410,8 +430,9 @@ def update_gender_histogram(selected_points):
 
     return studytime_fig
 
+
 @app.callback(
-    Output('parents-together-boxplot', 'figure'),
+    Output('parents-together-histogram', 'figure'),
     Input('selected-points', 'data')
 )
 
@@ -435,8 +456,44 @@ def update_cohibition_histogram(selected_points):
         xaxis=dict(
             title = "",
             tickvals=[0, 1],
-            ticktext=["True", "False"],
-            showticklabels=False
+            ticktext=["Yes", "No"],
+        ),
+        yaxis=dict(
+            title="",
+        ),
+        dragmode='select'
+    )
+
+    cohibition_fig.update_traces(
+        marker=dict(color='blue')
+    )
+
+    return cohibition_fig
+
+@app.callback(
+    Output('grade-histogram', 'figure'),
+    Input('selected-points', 'data')
+)
+
+def update_grade_histogram(selected_points):
+    if selected_points:
+        selected_df = df.iloc[selected_points]
+    else:
+        selected_df = df
+
+    cohibition_fig = px.histogram(
+        selected_df,
+        x='G3',
+        title="Final grade",
+        labels={'Final grade': 'Final grade'},
+    )
+
+    cohibition_fig.update_layout(
+        height=histogramHeight,
+        width=histogramWidth * 2,
+        title_x=0.5,
+        xaxis=dict(
+            title = "",
         ),
         yaxis=dict(
             title="",
