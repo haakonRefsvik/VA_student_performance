@@ -109,7 +109,7 @@ python3 vaSystem.py
 29. **health**: Current health status (numeric: 1 - very bad, 5 - very good)
 30. **absences**: Number of school absences (numeric: from 0 to 93)
 
-### Course Grades (Specific to Math or Portuguese)
+### Course Grades
 31. **G1**: First period grade (numeric: 0 to 20)
 32. **G2**: Second period grade (numeric: 0 to 20)
 33. **G3**: Final grade (numeric: 0 to 20) *(Output target)*
