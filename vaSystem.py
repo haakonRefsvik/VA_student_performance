@@ -181,9 +181,9 @@ def update_tsne_plot(studytime_selected, wants_higher_selected, parents_together
         df, x='tsne-1', y='tsne-2', color='G3',
         opacity=df['highlight'],  # Use the 'highlight' column for opacity
         title="t-SNE Visualization",
-        labels={'G3': 'Final Grade'},
+        labels={'G3': 'Final Grade', 'G1': 'First Period Grade', 'G2': 'Second Period Grade'},
         hover_data={'tsne-1': False, 'tsne-2': False, 
-                    'age': True, 'Medu': True, 'Fedu': True},  
+                    'age': True, 'G1': True, 'G2': True},  
         color_continuous_scale='Viridis',  
         range_color=[0, 20]  
     )
